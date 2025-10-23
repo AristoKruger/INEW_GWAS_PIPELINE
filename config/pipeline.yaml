@@ -1,0 +1,134 @@
+project_root: ".."
+
+paths:
+  raw_genotypes: "data/raw/genotypes/raw_genotypes.csv"
+  probe_annotation_excel: "data/metadata/35k_probe_set_IWGSCv1.xlsx"
+  probe_annotation_map: "data/metadata/35k_probe_set_IWGSCv1_cleaned_tab.map"
+  mlm_stats: "outputs/tassel/mlm_stats.txt"
+  ld_summary: "outputs/step10_ld_decay/filtered_genotypes_strict.ld.summary"
+  prune_in: "outputs/step11_plink_pruning/pruned_panel.prune.in"
+
+steps:
+  step01_filter_variants:
+    input_csv: "data/raw/genotypes/raw_genotypes.csv"
+    output_csv: "outputs/step01_filter_variants/filtered_genotypes.csv"
+    removed_log: "outputs/step01_filter_variants/filtered_snp_removals.csv"
+    maf_cutoff_percent: 5.0
+    missing_cutoff_percent: 5.0
+    missing_code: 9
+
+  step02_filter_mapped_snps:
+    input_csv: "outputs/step01_filter_variants/filtered_genotypes.csv"
+    output_csv: "outputs/step02_filter_mapped_snps/filtered_genotypes_mapped.csv"
+    snp_list_txt: "outputs/step02_filter_mapped_snps/filtered_snp_list.txt"
+    probe_annotation_excel: "data/metadata/35k_probe_set_IWGSCv1.xlsx"
+    snp_id_column: "Probe ID"
+    annotation_snp_column: "35K SNPId"
+    chromosome_column: "IWGSC_v1_Chromosome"
+
+  step03_filter_individuals:
+    input_csv: "outputs/step02_filter_mapped_snps/filtered_genotypes_mapped.csv"
+    output_csv: "outputs/step03_filter_individuals/filtered_genotypes_strict.csv"
+    removed_log: "outputs/step03_filter_individuals/filtered_genotypes_strict_removed_individuals.csv"
+    missing_threshold: 0.05
+    missing_code: 9
+
+  step04_transpose_matrix:
+    input_csv: "outputs/step03_filter_individuals/filtered_genotypes_strict.csv"
+    output_csv: "outputs/step04_transpose_matrix/filtered_genotypes_strict_T.csv"
+    snp_id_column: "Probe ID"
+    taxa_column: "Taxa"
+
+  step05_calculate_ibs:
+    input_csv: "outputs/step04_transpose_matrix/filtered_genotypes_strict_T.csv"
+    output_csv: "outputs/step05_calculate_ibs/similarity_matrix.csv"
+    label_column: "Taxa"
+    missing_code: 9
+
+  step06_convert_to_dissimilarity:
+    input_csv: "outputs/step05_calculate_ibs/similarity_matrix.csv"
+    output_csv: "outputs/step06_convert_to_dissimilarity/dissimilarity_matrix.csv"
+
+  step07_extract_labels:
+    input_csv: "outputs/step05_calculate_ibs/similarity_matrix.csv"
+    output_txt: "outputs/step07_extract_labels/genotype_labels.txt"
+
+  step08_create_plink_map:
+    snp_list_txt: "outputs/step02_filter_mapped_snps/filtered_snp_list.txt"
+    annotation_map: "data/metadata/35k_probe_set_IWGSCv1_cleaned_tab.map"
+    output_map: "outputs/step08_create_plink_map/filtered_genotypes_strict.map"
+    snp_id_column: "35K SNPId"
+    chromosome_column: "IWGSC_v1_Chromosome"
+    position_column: "IWGSC_v1_Position"
+
+  step09_csv_to_tped:
+    genotype_csv: "outputs/step04_transpose_matrix/filtered_genotypes_strict_T.csv"
+    map_file: "outputs/step08_create_plink_map/filtered_genotypes_strict.map"
+    output_tped: "outputs/step09_csv_to_tped/filtered_genotypes_strict.tped"
+    output_tfam: "outputs/step09_csv_to_tped/filtered_genotypes_strict.tfam"
+
+  step11_plink_pruning:
+    panel_prefix: "outputs/step11_plink_pruning/pruned_panel"
+
+  step12_extract_pruned_subset:
+    prune_in: "outputs/step11_plink_pruning/pruned_panel.prune.in"
+    input_csv: "outputs/step03_filter_individuals/filtered_genotypes_strict.csv"
+    output_csv: "outputs/step12_pruned_subset/ld_pruned_genotypes_strict.csv"
+
+  step13_pcoa:
+    script: "scripts/r/step13_pcoa.R"
+    dissimilarity_csv: "outputs/step06_convert_to_dissimilarity/dissimilarity_matrix.csv"
+    labels_txt: "outputs/step07_extract_labels/genotype_labels.txt"
+    coordinates_csv: "outputs/step13_pcoa/coordinates.csv"
+    plot_png: "outputs/step13_pcoa/pcoa_plot.png"
+
+  step14_convert_to_structure:
+    input_csv: "outputs/step12_pruned_subset/ld_pruned_genotypes_strict.csv"
+    output_txt: "outputs/step14_convert_to_structure/ld_pruned_genotypes_structure.txt"
+
+  step15_fix_pruned_ped:
+    input_ped: "outputs/step11_plink_pruning/pruned_panel.ped"
+    output_ped: "outputs/step15_fix_pruned_ped/pruned_panel_fixed.ped"
+
+  step16_trait_split:
+    script: "scripts/r/step16_trait_split.R"
+    mlm_stats: "outputs/tassel/mlm_stats.txt"
+    output_dir: "outputs/step16_trait_split/traits"
+
+  step17_trait_adjust:
+    script: "scripts/r/step17_trait_adjust.R"
+    input_dir: "outputs/step16_trait_split/traits"
+    pattern: "^mlm_stats_.*\\.csv$"
+    output_dir: "outputs/step17_trait_adjust/traits"
+    summary_file: "outputs/step17_trait_adjust/significant_snps_all_traits.csv"
+    n_tests: 3071
+    top_n: 10
+
+  step10_ld_decay_plot:
+    script: "scripts/r/step10_ld_decay_enhanced.R"
+    tped: "outputs/step09_csv_to_tped/filtered_genotypes_strict.tped"
+    tfam: "outputs/step09_csv_to_tped/filtered_genotypes_strict.tfam"
+    output_prefix: "outputs/step10_ld_decay/filtered_genotypes_strict"
+    ld_summary: "outputs/step10_ld_decay/filtered_genotypes_strict.ld.summary"
+    output_png: "outputs/step10_ld_decay/ld_decay.png"
+    bins_tsv: "outputs/step10_ld_decay/ld_bins.tsv"
+    smooth_tsv: "outputs/step10_ld_decay/ld_smooth.tsv"
+    metrics_tsv: "outputs/step10_ld_decay/ld_decay_metrics.tsv"
+    threshold_txt: "outputs/step10_ld_decay/ld_decay_threshold.txt"
+    ld_window_kb: 600000
+    ld_window: 999999
+    ld_window_r2: 0.0
+    r2_threshold: 0.2
+    bin_size_bp: 50000
+    loess_span: 0.2
+
+tools:
+  plink_ld_prune:
+    window_kb: 50
+    step: 5
+    r2: 0.2
+  plink_ld_decay:
+    ld_window_kb: 600000
+    ld_window: 999999
+    ld_window_r2: 0.0
+

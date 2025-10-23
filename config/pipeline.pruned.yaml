@@ -1,0 +1,77 @@
+project_root: ..
+
+paths:
+  raw_genotypes: data/raw/genotypes/raw_genotypes.csv
+  probe_annotation_excel: data/metadata/35k_probe_set_IWGSCv1.xlsx
+  probe_annotation_map: data/metadata/35k_probe_set_IWGSCv1_cleaned_tab.map
+  mlm_stats: outputs/tassel/mlm_stats.txt
+  prune_in: outputs/step11_plink_pruning/pruned_panel.prune.in
+
+steps:
+  step11_plink_pruning:
+    panel_prefix: outputs/step11_plink_pruning/pruned_panel
+  
+  step12_extract_pruned_subset:
+    prune_in: outputs/step11_plink_pruning/pruned_panel.prune.in
+    input_csv: outputs/step03_filter_individuals/filtered_genotypes_strict.csv
+    output_csv: outputs/step12_pruned_subset/ld_pruned_genotypes_strict.csv
+
+  step04_transpose_pruned:
+    input_csv: outputs/step12_pruned_subset/ld_pruned_genotypes_strict.csv
+    output_csv: outputs/step04_transpose_pruned/filtered_genotypes_strict_T_pruned.csv
+    snp_id_column: Probe ID
+    taxa_column: Taxa
+
+  step05_calculate_ibs_pruned:
+    input_csv: outputs/step04_transpose_pruned/filtered_genotypes_strict_T_pruned.csv
+    output_csv: outputs/step05_calculate_ibs_pruned/similarity_matrix_pruned.csv
+    label_column: Taxa
+    missing_code: 9
+
+  step06_convert_to_dissimilarity_pruned:
+    input_csv: outputs/step05_calculate_ibs_pruned/similarity_matrix_pruned.csv
+    output_csv: outputs/step06_convert_to_dissimilarity_pruned/dissimilarity_matrix_pruned.csv
+
+  step07_extract_labels_pruned:
+    input_csv: outputs/step05_calculate_ibs_pruned/similarity_matrix_pruned.csv
+    output_txt: outputs/step07_extract_labels_pruned/genotype_labels_pruned.txt
+
+  step13_pcoa:
+    script: scripts/r/step13_pcoa.R
+    dissimilarity_csv: outputs/step06_convert_to_dissimilarity_pruned/dissimilarity_matrix_pruned.csv
+    labels_txt: outputs/step07_extract_labels_pruned/genotype_labels_pruned.txt
+    coordinates_csv: outputs/step13_pcoa/pcoa_coordinates_pruned.csv
+    plot_png: outputs/step13_pcoa/pcoa_plot_pruned.png
+
+  step14_convert_to_structure:
+    input_csv: outputs/step12_pruned_subset/ld_pruned_genotypes_strict.csv
+    output_txt: outputs/step14_convert_to_structure/ld_pruned_genotypes_structure.txt
+
+  step15_fix_pruned_ped:
+    input_ped: outputs/step11_plink_pruning/pruned_panel.ped
+    output_ped: outputs/step15_fix_pruned_ped/pruned_panel_fixed.ped
+
+  step16_trait_split:
+    script: scripts/r/step16_trait_split.R
+    mlm_stats: outputs/tassel/mlm_stats.txt
+    output_dir: outputs/step16_trait_split/traits
+
+  step17_trait_adjust:
+    script: scripts/r/step17_trait_adjust.R
+    input_dir: outputs/step16_trait_split/traits
+    pattern: ^mlm_stats_.*\.csv$
+    output_dir: outputs/step17_trait_adjust/traits
+    summary_file: outputs/step17_trait_adjust/significant_snps_all_traits.csv
+    n_tests: 3071
+    top_n: 10
+
+tools:
+  plink_ld_prune:
+    window_kb: 50
+    step: 5
+    r2: 0.2
+    
+  plink_ld_decay:
+    ld_window_kb: 600000
+    ld_window: 999999
+    ld_window_r2: 0.0

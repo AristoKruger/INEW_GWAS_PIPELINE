@@ -1,0 +1,60 @@
+project_root: ".."
+
+paths:
+  raw_genotypes: "docs/sample_data/raw/raw_genotypes_sample.csv"
+  probe_annotation_excel: "docs/sample_data/metadata/35k_probe_set_sample.xlsx"
+
+steps:
+  step01_filter_variants:
+    input_csv: "docs/sample_data/raw/raw_genotypes_sample.csv"
+    output_csv: "outputs/sample_run/step01_filter_variants/filtered_genotypes.csv"
+    removed_log: "outputs/sample_run/step01_filter_variants/removed_snps.csv"
+    maf_cutoff_percent: 5.0
+    missing_cutoff_percent: 20.0
+    missing_code: 9
+
+  step02_filter_mapped_snps:
+    input_csv: "outputs/sample_run/step01_filter_variants/filtered_genotypes.csv"
+    output_csv: "outputs/sample_run/step02_filter_mapped_snps/filtered_genotypes_mapped.csv"
+    snp_list_txt: "outputs/sample_run/step02_filter_mapped_snps/filtered_snp_list.txt"
+    probe_annotation_excel: "docs/sample_data/metadata/35k_probe_set_sample.xlsx"
+    snp_id_column: "Probe ID"
+    annotation_snp_column: "35K SNPId"
+    chromosome_column: "IWGSC_v1_Chromosome"
+
+  step03_filter_individuals:
+    input_csv: "outputs/sample_run/step02_filter_mapped_snps/filtered_genotypes_mapped.csv"
+    output_csv: "outputs/sample_run/step03_filter_individuals/filtered_genotypes_strict.csv"
+    removed_log: "outputs/sample_run/step03_filter_individuals/removed_individuals.csv"
+    missing_threshold: 0.2
+    missing_code: 9
+
+  step04_transpose_matrix:
+    input_csv: "outputs/sample_run/step03_filter_individuals/filtered_genotypes_strict.csv"
+    output_csv: "outputs/sample_run/step04_transpose_matrix/filtered_genotypes_strict_T.csv"
+    snp_id_column: "Probe ID"
+    taxa_column: "Taxa"
+
+  step05_calculate_ibs:
+    input_csv: "outputs/sample_run/step04_transpose_matrix/filtered_genotypes_strict_T.csv"
+    output_csv: "outputs/sample_run/step05_calculate_ibs/similarity_matrix.csv"
+    label_column: "Taxa"
+    missing_code: 9
+
+  step06_convert_to_dissimilarity:
+    input_csv: "outputs/sample_run/step05_calculate_ibs/similarity_matrix.csv"
+    output_csv: "outputs/sample_run/step06_convert_to_dissimilarity/dissimilarity_matrix.csv"
+
+  step07_extract_labels:
+    input_csv: "outputs/sample_run/step05_calculate_ibs/similarity_matrix.csv"
+    output_txt: "outputs/sample_run/step07_extract_labels/genotype_labels.txt"
+
+tools:
+  plink_ld_prune:
+    window_kb: 50
+    step: 5
+    r2: 0.2
+  plink_ld_decay:
+    ld_window_kb: 600000
+    ld_window: 999999
+    ld_window_r2: 0.0

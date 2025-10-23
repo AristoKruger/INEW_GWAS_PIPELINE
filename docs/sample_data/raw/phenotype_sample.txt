@@ -1,0 +1,4 @@
+Sample	Trait1
+Sample_1	12.4
+Sample_2	10.8
+Sample_3	11.5
